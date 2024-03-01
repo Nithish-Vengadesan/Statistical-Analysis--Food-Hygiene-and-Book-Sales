@@ -1,0 +1,19 @@
+A report is prepared for politicians and managers of the Food Standards Agency regarding the effectiveness of interventions in response to establishments' non-compliance with hygiene and food safety laws. The data provided contains information on local authorities (LAs) in England, Wales, and Northern Ireland, with establishments rated for their potential impact on public health and inspected for compliance.
+
+The report addresses the following:
+
+Distribution of Successful Responses to Interventions: A plot is created to visualize the distribution across LAs of the percentage of enforcement actions successfully achieved. Separate versions are provided: one showing the distribution for all impact levels combined, and another showing the distributions separately for establishments rated A, B, C, D, and E.
+
+Relationship between Success and Number of Food Safety Employees: The report examines whether employing more professional enforcement officers correlates with a higher likelihood of establishments successfully responding to enforcement actions. This is analyzed using the number of Full-Time Equivalent (FTE) food safety employees in each LA. Additionally, the report explores whether there is a relationship between the proportion of successful responses and the number of employees relative to the number of establishments in the LA, creating a measure of food safety employees per establishment.
+
+Similarly, another report is prepared for the managers of a publishing company regarding e-book sales. The data provided includes information on e-book sales over a period of several months.
+
+The report addresses the following:
+
+Variation in Daily Sales by Genre: The report investigates whether books from different genres have different average daily sales.
+
+Impact of Review Scores and Total Reviews on Sales: It examines whether books have more or fewer sales depending on their average review scores and total number of reviews.
+
+Effect of Sale Price on Sales and Variation Across Genres: The report analyzes the effect of sale price on the number of sales and whether this effect differs across genres.
+
+Both reports aim to provide actionable insights to the respective stakeholders, enabling informed decision-making and strategy formulation based on data-driven analysis.

@@ -1,0 +1,797 @@
+---
+title: "Food Hygine and Book Publisher Analysis"
+author: "Nithish Vengadesan"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+#Required Libraries 
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+library(reshape2)
+library(ggpubr)
+library(plotly)
+library(Hmisc)
+library(emmeans)
+library(tidyverse)
+options(width=100)
+
+```
+---
+# Food Hygine Statistical Analysis
+
+This report full fills the request of politicians and managers of the Food Standards 
+Agency performing the specific analysis
+
+The data provided contains one row for each local authority in England, Wales and Northern 
+Ireland and establishments within each local authority. Establishments within each local authority are rated for their potential impact on public health.
+
+## Data Dictionary
+
+Variable Name | Description
+-------------------------- | --------------------------
+Country | The region where the local council is situated
+LAType | A local authority's category. 
+LAName | The regional government's name.
+Totalestablishments(includingnotyetrated&outside)  | The total number of establishments, including those outside the programme and those whose intervention potential has not yet been determined.
+Total%ofInterventionsachieved(premisesratedA-E) | The overall success rate for interventions for buildings with grades A through E.
+Total%ofInterventionsachieved-premisesratedA | The aggregate success rate of interventions for locations with an A rating.
+Total%ofInterventionsachieved-premisesratedB | The whole percentage of interventions completed for B-rated locations.
+Total%ofInterventionsachieved-premisesratedC | The overall success rate of interventions for C-rated buildings.
+Total%ofInterventionsachieved-premisesratedD | The overall success rate of interventions for D-rated establishments.
+Total%ofInterventionsachieved-premisesratedE | The overall success rate of treatments for E-rated properties.
+Aratedestablishments | The quantity of rated establishments A. 
+Bratedestablishments | The number of organizations with a B rating.
+Cratedestablishments | The number of firms with a C rating.
+Dratedestablishments | The volume of businesses with a D rating.
+Eratedestablishments | The total number of businesses with an E rating. 
+ProfessionalFullTimeEquivalentPosts-occupied * |  The quantity of professional full-time equivalent positions that are currently filled.
+
+## Section 1
+
+### Read Data
+
+
+```{r}
+
+#Import Data Set and checking Structure and Summary
+df <- read_csv("2019-20-enforcement-data-food-hygiene.csv")
+print(head(df))
+
+print(str(df))
+
+print(summary(df))
+
+```
+
+### EDA
+
+The Data contains the values NP and NR, respectively, which means (as per the documentation for Food Hygiene Data - Supporting Notes): No premises were supplied at this risk level(NP). No interventions are due or reported(NR). The values are type converted to a numeric datatype and replaced with the proper numerical values of 0 for NP and 100 for NR
+
+The local authority of England contains 6 rows with empty fields that were eliminated because they had no data in any of the fields.
+```{r}
+#Type Casting 
+df$`Total%ofInterventionsachieved-premisesratedA`[df$`Total%ofInterventionsachieved-premisesratedA` == "NR"] = "100"
+df$`Total%ofInterventionsachieved-premisesratedA` <- as.numeric(df$`Total%ofInterventionsachieved-premisesratedA`)
+df$`Total%ofBroadlyCompliantestablishments-A`[df$`Total%ofBroadlyCompliantestablishments-A` == "NP"] = "0"
+df$`Total%ofBroadlyCompliantestablishments-A` <- as.numeric(df$`Total%ofBroadlyCompliantestablishments-A`)
+
+#Remove Null Charecters
+df <- na.omit(df)
+```
+
+### Analysis of establishments successfully respond to intervention actions
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+# Data Insights
+
+#Obtaining Total Establishments under Different Local Authorities
+D2 <- df
+D2$Country <- as.factor(D2$Country)
+
+Estab <- D2 %>%  group_by(Country,LAType)%>%
+  dplyr::summarise(sumA = sum( Aratedestablishments) , sumB = sum( Bratedestablishments) , sumC = sum( Cratedestablishments), sumD = sum( Dratedestablishments) ,sumE = sum( Eratedestablishments))
+
+print(Estab)
+
+grid.arrange(
+ggplot(Estab, aes(x = Country, y= sumA)) +
+  geom_bar(stat = "identity") +
+  
+  labs(x="Districts", y="Total A Permises")
+  ,
+
+ggplot(Estab, aes(x=Country, y= sumB )) +
+  geom_bar(stat = "identity") +
+  labs(x="Districts", y="Total B Permises"),
+
+ggplot(Estab, aes(x=Country, y= sumC )) +
+  geom_bar(stat = "identity") +
+  labs(x="Districts", y="Total C Permises"),
+ggplot(Estab, aes(x=Country, y= sumD )) +
+  geom_bar(stat = "identity") +
+  labs(x="Districts", y="Total D Permises"),
+
+ggplot(Estab, aes(x=Country, y= sumE )) +
+  geom_bar(stat = "identity") +
+  labs(x="Districts", y="Total E Permises"),
+
+  top = "Total Establishments"  )
+
+```
+
+England has the Highest number of Establishments and total number of establishments in each Ratings is given above.
+
+### Establisments Under Broadly Complaint
+
+```{r}
+# Plot Total Establishments under Different Country
+
+plot1 <- ggplot(df, aes(`Total%ofBroadlyCompliantestablishmentsratedA-E`))+geom_histogram(aes(fill= Country), colour="black", binwidth = 0.3)+labs(x="Total % of BroadlyCompliant Establishments Rated A-E" , title ="Distribution of Establishments under Broadly Complaint")
+
+ggplotly(plot1)
+```
+
+Graph Gives Information about the Distribution of Establishments Rated Under Broadly Complaint.
+Most of the Establishments around 90% to 100% in each local Authority are rated according to Broadly Compliant. 
+Establishments Under 4 Local Authority of England are 100% rated. 
+Few Establishments under 11 Local Authority are not rated as Broadly Compliant establishments about 70-90%.
+
+```{r}
+# Data of types of formal enforcement actions across different LATypes.
+
+D3 <- df
+D3$Country <- as.factor(D3$Country)
+D3$LAType <- as.factor(D3$LAType)
+
+Inve <- D3 %>%  group_by(Country,LAType)%>%
+  dplyr::summarise(  Voluntaryclosure = sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Voluntaryclosure`), Seizure = sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Seizure,detention&surrenderoffood`),
+ Suspension = sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Suspension/revocationofapprovalorlicence`),
+ Hygieneemergencyprohibitionnotice=sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Hygieneemergencyprohibitionnotice`),
+ Prohibitionorder=sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Prohibitionorder`),
+ Simplecaution=sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Simplecaution`),
+ Hygieneimprovementnotices=sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Hygieneimprovementnotices`),
+ Remedialaction=sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Remedialaction&detentionnotices`),
+ Writtenwarnings=sum( `TotalnumberofestablishmentssubjecttoWrittenwarnings`),
+ Prosecutionsconcluded=sum(`Totalnumberofestablishmentssubjecttoformalenforcementactions-Prosecutionsconcluded`)
+  )
+
+print(Inve)
+
+
+```
+Above Table Provides Information on Total number of establishments subject to formal enforcement actions
+151630 Establishments have receive Written Warnings in all Local Authorities and 24 Establisments are subjected to Suspension/Revocation of approval or licence. 
+Establishments of Local Authority of Northern Ireland have 0 establishments subjected to Suspension or Hygiene Emergency Prohibition notice or Prohibition Order
+
+
+### Distribution of the percentage of successful enforcement actions across Local Authorities
+
+```{r}
+#
+plot2 <- ggplot(df, aes(`Total%ofInterventionsachieved(premisesratedA-E)`))+geom_histogram(aes(fill=LAType), colour="black", binwidth = 3)+labs(x="% of Intervention achieved (A-E)", y= "Interventions")
+
+ggplotly(plot2)
+```
+
+The distribution is left skewed.This data is a significant negative skew, which indicates that more establishments have successfully achieved interventions.
+
+
+
+### Distributions for each establishment rated A, B, C, D, and E individually
+
+```{r}
+# Plots for Different Establishments Rated A-E
+dA <- ggplot(df, aes(`Total%ofInterventionsachieved-premisesratedA`))+geom_histogram(aes(fill=LAType), colour="black", binwidth = 2)+
+  labs(x="% of Interventions Achieved (Rated A)") +
+  theme(legend.position = 'hidden')
+
+dB <- ggplot(df, aes(`Total%ofInterventionsachieved-premisesratedB`))+geom_histogram(aes(fill=LAType), colour="black", binwidth = 2)+
+  labs(x="% of Interventions Achieved (Rated B)") +
+  theme(legend.position = 'hidden')
+
+dC <- ggplot(df, aes(`Total%ofInterventionsachieved-premisesratedC`))+geom_histogram(aes(fill=LAType), colour="black", binwidth = 2)+
+  labs(x="% of Interventions Achieved (Rated C)") +
+  theme(legend.position = 'hidden')
+
+dD <- ggplot(df, aes(`Total%ofInterventionsachieved-premisesratedD`))+geom_histogram(aes(fill=LAType), colour="black", binwidth = 2)+
+  labs(x="% of Interventions Achieved (Rated D)") +
+  theme(legend.position = 'hidden')
+
+dE <- ggplot(df, aes(`Total%ofInterventionsachieved-premisesratedE`))+geom_histogram(aes(fill=LAType), colour="black", binwidth = 2)+
+  labs(x="% of Interventions Achieved (Rated E)") +
+  theme(legend.position = 'hidden')
+
+
+ggarrange(dA,dB,dC,dD,dE,common.legend = TRUE,top = "Individual Impact Level(A-E) Distribution")
+```
+Similar left skew is obtained for All premises rated (A-E) and most of the Interventions are achieved in each rated establishments.
+
+### Relationship between each local authority's number of FTE food safety personnel and the percentage of effective answers
+
+
+```{r}
+#Creating New data Frames with Requires data
+df <- df%>%
+  mutate(LAType_factored = as.numeric(factor(LAType)))
+
+df_DC <- df %>%
+  filter(LAType_factored == 1) %>%
+    select(LAType, `Totalestablishments(includingnotyetrated&outside)`, `Total%ofInterventionsachieved(premisesratedA-E)`, `ProfessionalFullTimeEquivalentPosts-occupied *`) %>%
+  mutate(Proportion_emp_est = `ProfessionalFullTimeEquivalentPosts-occupied *`/`Totalestablishments(includingnotyetrated&outside)`)
+
+df_LB <- df %>%
+  filter(LAType_factored == 2) %>%
+    select(LAType, `Totalestablishments(includingnotyetrated&outside)`, `Total%ofInterventionsachieved(premisesratedA-E)`, `ProfessionalFullTimeEquivalentPosts-occupied *`) %>%
+  mutate(Proportion_emp_est = `ProfessionalFullTimeEquivalentPosts-occupied *`/`Totalestablishments(includingnotyetrated&outside)`)
+
+df_MBC <- df %>%
+  filter(LAType_factored == 3) %>%
+    select(LAType, `Totalestablishments(includingnotyetrated&outside)`, `Total%ofInterventionsachieved(premisesratedA-E)`, `ProfessionalFullTimeEquivalentPosts-occupied *`) %>%
+  mutate(Proportion_emp_est = `ProfessionalFullTimeEquivalentPosts-occupied *`/`Totalestablishments(includingnotyetrated&outside)`)
+
+df_NUA <- df %>%
+  filter(LAType_factored == 4) %>%
+    select(LAType, `Totalestablishments(includingnotyetrated&outside)`, `Total%ofInterventionsachieved(premisesratedA-E)`, `ProfessionalFullTimeEquivalentPosts-occupied *`) %>%
+  mutate(Proportion_emp_est = `ProfessionalFullTimeEquivalentPosts-occupied *`/`Totalestablishments(includingnotyetrated&outside)`)
+
+df_UA <- df %>%
+  filter(LAType_factored == 5) %>%
+    select(LAType, `Totalestablishments(includingnotyetrated&outside)`, `Total%ofInterventionsachieved(premisesratedA-E)`, `ProfessionalFullTimeEquivalentPosts-occupied *`) %>%
+  mutate(Proportion_emp_est = `ProfessionalFullTimeEquivalentPosts-occupied *`/`Totalestablishments(includingnotyetrated&outside)`)
+
+
+df_WUA <- df %>%
+  filter(LAType_factored == 6) %>%
+    select(LAType, `Totalestablishments(includingnotyetrated&outside)`, `Total%ofInterventionsachieved(premisesratedA-E)`, `ProfessionalFullTimeEquivalentPosts-occupied *`) %>%
+  mutate(Proportion_emp_est = `ProfessionalFullTimeEquivalentPosts-occupied *`/`Totalestablishments(includingnotyetrated&outside)`)
+
+
+```
+
+### Correlation Between FTE Employees and Percentages of Interventions Achieved.
+
+```{r}
+x <- rcorr(as.matrix(select(df, `Total%ofInterventionsachieved(premisesratedA-E)`, `ProfessionalFullTimeEquivalentPosts-occupied *`)))
+
+print(x)
+```
+The Correlation between the Quantity of Interventions and FTE employees overall is less to -0.02 and we could also see the Pvalue > 0.05 which is very high, indicating insignificance over all.
+
+```{r}
+ggplot(df, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=`ProfessionalFullTimeEquivalentPosts-occupied *`)) + geom_point() + geom_smooth() + labs(y="Employees", x="Successful Interventions")
+```
+The straight line Indicates there is no big correlation between Employees and Successful Interventions.
+
+```{r}
+# Linear Regression  
+model_overall <- lm(`Total%ofInterventionsachieved(premisesratedA-E)`~`ProfessionalFullTimeEquivalentPosts-occupied *`, data = df)
+
+```
+p value = 0.6552 > 0.005 indicating insignificance, R square is 0.0005787 which shows very bad variation between dependent variable and independent variable. The coefficient estimate as intercept = 87.1091 indicating for 0 employees 87% of successful responses are obtained and Coefficient of slope = -0.1195 indicating for every employee the percentage of successful responses is reduced by 0.12 which is insignificant practically.
+
+```{r}
+#output of Linear Regression
+summary(model_overall)
+cbind(coefficient=coef(model_overall), confint(model_overall))
+```
+The results suggest that there is an average decrease of 0.12 interventions for every 1% increase of employee . The confidence intervals include zero (95% CI = [-0.645, 0.406]) and this decrease is not significantly different from zero, t(347)= -0.47, p=0.65
+
+
+### Corelations Between Each Local Authority Type Employee and Sucessfull Interventions
+
+```{r}
+# Creating a Correlation Data Frame
+FTE_DC <- cor(df_DC$`Total%ofInterventionsachieved(premisesratedA-E)`,df_DC$`ProfessionalFullTimeEquivalentPosts-occupied *`)
+FTE_LB <- cor(df_LB$`Total%ofInterventionsachieved(premisesratedA-E)`,df_LB$`ProfessionalFullTimeEquivalentPosts-occupied *`)
+FTE_MBC <- cor(df_MBC$`Total%ofInterventionsachieved(premisesratedA-E)`,df_MBC$`ProfessionalFullTimeEquivalentPosts-occupied *`)
+FTE_NUA <- cor(df_NUA$`Total%ofInterventionsachieved(premisesratedA-E)`,df_NUA$`ProfessionalFullTimeEquivalentPosts-occupied *`)
+FTE_UA <- cor(df_UA$`Total%ofInterventionsachieved(premisesratedA-E)`,df_UA$`ProfessionalFullTimeEquivalentPosts-occupied *`)
+FTE_WUA <- cor(df_WUA$`Total%ofInterventionsachieved(premisesratedA-E)`,df_WUA$`ProfessionalFullTimeEquivalentPosts-occupied *`)
+
+print(data.frame(FTE_DC,FTE_LB,FTE_MBC,FTE_NUA,FTE_UA,FTE_WUA))
+```
+Correlation Between Local Authority District Counsil and FTE Employees = 0.06 is a near perfect zero correlation
+Correlation Between Local Authority London Borough and FTE Employees = 0.1481 a positive weak correlation
+Correlation Between Local Authority Metropolitan Borough Council and FTE Employees = 0.06 is a near perfect zero correlation
+Correlation Between Local Authority Unitary Authority and FTE Employees = 0.16a positive weak correlation
+Correlation Between Local Authority District Counsil and FTE Employees = -0.066 is a near perfect zero correlation
+Correlation Between Local Authority District Counsil and FTE Employees = -0.066 is a near perfect zero correlation
+
+
+```{r}
+# Creating a Grid of Correlation coeffecients
+c1 <- ggplot(df_DC, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=`ProfessionalFullTimeEquivalentPosts-occupied *`)) + geom_point() + geom_smooth() + labs(y="Employees", x="Successful Interventions at DC")
+
+c2 <- ggplot(df_LB, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=`ProfessionalFullTimeEquivalentPosts-occupied *`)) + geom_point() + geom_smooth() + labs(y="Employees", x="Successful Interventions at LB")
+
+c3 <- ggplot(df_MBC, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=`ProfessionalFullTimeEquivalentPosts-occupied *`)) + geom_point() + geom_smooth() + labs(y="Employees", x="Successful Interventions at MBC")
+
+c4 <- ggplot(df_NUA, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=`ProfessionalFullTimeEquivalentPosts-occupied *`)) + geom_point() + geom_smooth() + labs(y="Employees", x="Successful Interventions at NUA")
+
+c5 <- ggplot(df_UA, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=`ProfessionalFullTimeEquivalentPosts-occupied *`)) + geom_point() + geom_smooth() + labs(y="Employees", x="Successful Interventions at UA")
+
+c6 <- ggplot(df_WUA, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=`ProfessionalFullTimeEquivalentPosts-occupied *`)) + geom_point() + geom_smooth() + labs(y="Employees", x="Successful Interventions at WUA")
+
+grid.arrange(c1,c2,c3,c4,c5,c6,nrow=3,top = "Employee Relation at Each Local Authority")
+```
+\
+Therefore there is a near perfect zero correlation between employees and Local Authorities DC,MBC, UA,WUA.
+Although weak, there is a positive association at the Local Authority LB and NUA..
+
+```{r}
+# Creating a Linear Regression Model for Every establishments of Loacal Authority Type
+model_DC <- lm(`Total%ofInterventionsachieved(premisesratedA-E)`~`ProfessionalFullTimeEquivalentPosts-occupied *`, data = df_DC)
+
+model_LB <- lm(`Total%ofInterventionsachieved(premisesratedA-E)`~`ProfessionalFullTimeEquivalentPosts-occupied *`, data = df_LB)
+
+model_MBC <- lm(`Total%ofInterventionsachieved(premisesratedA-E)`~`ProfessionalFullTimeEquivalentPosts-occupied *`, data = df_MBC)
+
+model_NUA <- lm(`Total%ofInterventionsachieved(premisesratedA-E)`~`ProfessionalFullTimeEquivalentPosts-occupied *`, data = df_NUA)
+
+model_UA <- lm(`Total%ofInterventionsachieved(premisesratedA-E)`~`ProfessionalFullTimeEquivalentPosts-occupied *`, data = df_UA)
+
+model_WUA <- lm(`Total%ofInterventionsachieved(premisesratedA-E)`~`ProfessionalFullTimeEquivalentPosts-occupied *`, data = df_WUA)
+
+```
+
+
+```{r}
+#Linear Model Output of DC
+print(summary(model_DC))
+cbind(coefficient=coef(model_DC), confint(model_DC))
+```
+There is an average increase of 0.60 interventions for every 1% increase of employee . The confidence intervals include zero (95% CI = [-0.75, 1.96]) and this increase is not significant, t(187)= 0.88, p=0.38
+
+
+```{r}
+#Linear Model Output of MBC
+print(summary(model_LB))
+cbind(coefficient=coef(model_LB), confint(model_LB))
+
+```
+There is an average increase of 0.94 interventions for every 1% increase of employee . The confidence intervals include zero (95% CI = [-1.37, 3.27]) and this increase is not significant, t(31)= 0.83, p=0.41
+
+```{r}
+#Linear Model Output of MBC
+print(summary(model_MBC))
+cbind(coefficient=coef(model_MBC), confint(model_MBC))
+```
+There is an average increase of 0.29 interventions for every 1% increase of employee . The confidence intervals include zero (95% CI = [-1.37, 1.96]) and this increase is not significant, t(34)= 0.35, p=0.72
+
+```{r}
+#Linear Model Output of NUA
+print(summary(model_NUA))
+cbind(coefficient=coef(model_NUA), confint(model_NUA))
+
+```
+There is an average increase of 0.83 interventions for every 1% increase of employee . The confidence intervals include zero (95% CI = [-2.9, 4.58]) and this increase is not significant, t(9)= 0.5, p=0.62
+
+```{r}
+#Linear Model Output of UA
+print(summary(model_UA))
+cbind(coefficient=coef(model_UA), confint(model_UA))
+
+```
+There is an average decrease of -0.30 interventions for every 1% increase of employee . The confidence intervals include zero (95% CI = [-1.52, 0.93]) and this decrease is not significant, t(54)= -0.48, p=0.63
+
+```{r}
+#Linear Model Output of WUA
+print(summary(model_WUA))
+cbind(coefficient=coef(model_WUA), confint(model_WUA))
+```
+There is an average decrease of -0.20 interventions for every 1% increase of employee . The confidence intervals include zero (95% CI = [-1.68, 1.26]) and this decrease is not significant, t(20)= -0.297, p=0.77
+
+### Relaitonship between Proportion of employees in local Authority and Total % of Interventions
+
+```{r}
+# Creating a Correlation Table for Proportion of employees to Successful Interventions
+FTE_PDC <- cor(df_DC$`Total%ofInterventionsachieved(premisesratedA-E)`,df_DC$Proportion_emp_est)
+FTE_PLB <- cor(df_LB$`Total%ofInterventionsachieved(premisesratedA-E)`,df_LB$Proportion_emp_est)
+FTE_PMBC <- cor(df_MBC$`Total%ofInterventionsachieved(premisesratedA-E)`,df_MBC$Proportion_emp_est)
+FTE_PNUA <- cor(df_NUA$`Total%ofInterventionsachieved(premisesratedA-E)`,df_NUA$Proportion_emp_est)
+FTE_PUA <- cor(df_UA$`Total%ofInterventionsachieved(premisesratedA-E)`,df_UA$Proportion_emp_est)
+FTE_PWUA <- cor(df_WUA$`Total%ofInterventionsachieved(premisesratedA-E)`,df_WUA$Proportion_emp_est)
+
+print(data.frame(FTE_PDC,FTE_PLB,FTE_PMBC,FTE_PNUA,FTE_PUA,FTE_PWUA))
+```
+Correlation Between Local Authority District Counsil and Proportion of FTE Employees = 0.15 a positive weak correlation
+Correlation Between Local Authority London Borough and Proportion of FTE Employees = 0.32 a positive  correlation
+Correlation Between Local Authority Metropolitan Borough Council and Proportion of FTE Employees = 0.23 a positive weak correlation
+Correlation Between Local Authority Unitary Authority and Proportion of FTE Employees = 0.46 a positive correlation
+Correlation Between Local Authority District Counsil and Proportion of FTE Employees = 0.23 a positive weak correlation
+Correlation Between Local Authority District Counsil and Proportion of FTE Employees = 0.010 a positive weak correlation
+
+```{r}
+#Grid for Correlation for Proportion of employes.
+c7 <- ggplot(df_DC, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=Proportion_emp_est)) + geom_point() + geom_smooth() + labs(y="Proportion", x="Successful Interventions DC")
+
+c8 <- ggplot(df_LB, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=Proportion_emp_est)) + geom_point() + geom_smooth() + labs(y="Proportion", x="Successful Interventions LB")
+
+c9 <- ggplot(df_MBC, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=Proportion_emp_est)) + geom_point() + geom_smooth() + labs(y="Proportion", x="Successful Interventions MBC")
+
+c10 <- ggplot(df_NUA, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=Proportion_emp_est)) + geom_point() + geom_smooth() + labs(y="Proportion", x="Successful Interventions NUA")
+
+c11 <- ggplot(df_UA, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=Proportion_emp_est)) + geom_point() + geom_smooth() + labs(y="Proportion", x="Successful Interventions UA")
+
+c12 <- ggplot(df_WUA, aes(x=`Total%ofInterventionsachieved(premisesratedA-E)`, y=Proportion_emp_est)) + geom_point() + geom_smooth() + labs(y="Proportion", x="Successful Interventions WUA")
+
+grid.arrange(c7,c8,c9,c10,c11,c12,nrow=3,top = "Proportion of Employee at Each Local Authority")
+
+```
+
+The Graph depicts that there is a weak positive correlation between propotion of employees and Local Authorities in all LATypes DC, LB, MBC, NUA, UA,WUA.
+
+## Section 2
+
+This report was created to aid politicians and management of the Food Standards Agency in understanding how businesses in different local governments in the United Kingdom responded to intervention measures put on them. The collection initially contains 353 establishments from three distinct nations (England, Wales, and Northern Ireland). There are six separate local authority classifications in these three nations, including Welsh Unitary Authority, NI Unitary Authority, London Borough, Metropolitan Borough Council, and District Council (DC) (WUA). 38 information columns about each establishment were also included. Six rows with NA values were eliminated from the data after cleaning, leaving 347 businesses for study. The distribution of the percentage of successful enforcement actions across Local
+
+### Table of total establishments in different Local Authority Type in England, Wales and Northern Ireland
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+print(Estab)
+```
+In England, we can see that there are more establishments that fall under four different local authority types.The Number of Establishments Rated betweeen A-E in each Local Authority type is also depicted.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplotly(plot1)
+```
+
+Graph Gives Information about the Distribution of Establishments Rated Under Broadly Complaint
+Most of the Establishments in each local Authority around 90% to 100%  are rated according to Broadly Compliant. 
+Establishments Under 4 Local Authority(Forest of Dean,West Dorset (1),Hartlepool (10),- Isles of Scilly) of England are 100% rated. 
+Few Establishments under 11 Local Authority of England are not rated as Broadly Compliant establishments about 70-90%.
+
+### Table of Formal Enforcement action taken on Establishments Under Each Local Authority
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+print(Inve)
+```
+
+Above Table Provides Information on Total number of establishments subject to formal enforcement actions.
+151630 Establishments have recived Written Warnings in all Local Authorities and 24 Establisments are subjected to Suspension/Revocation of approvalor licence. 
+Establishments of Local Authority of Northern Ireland have 0 establishments subjected to Suspension or Hygine Emergency Prohibition notice or Prohibition Order
+Establiments in Northern Ireland have less enforcement actions over all.
+
+### Distribution of the percentage of successful enforcement actions across Local Authorities
+
+The distribution of the percentage of establishments (all impact levels combined) that successfully achieved the enforcement actions is shown in Figure below,
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplotly(plot2)
+```
+Most of the Local Authorities have achieved 80-100% of successful Intervention in most of the Establishments.
+1 local authority under the LAType London Borough which has only 20% interventions achieved.
+1 local authority under the LAType Unitary Authority has achieved only 36% of interventions.
+
+It is evident that a bigger percentage of establishments successfully carry out law enforcement operations. By implementing the required changes and resolving the issues raised, several enterprises are so becoming compliant with the legislation. Overall, the establishments have responded very favorably to the actions taken by law enforcement.
+
+### Distributions for each establishment rated A, B, C, D, and E individually
+
+The Distribution of Individual Impact on successful interventions is shown in the figure below.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggarrange(dA,dB,dC,dD,dE,common.legend = TRUE,top = "Individual Impact Level(A-E) Distribution")
+```
+
+All the Graphs indicate most of the Intervention are achieved in all Ranked in different LATypes.
+More than 300 Establishments Rated A and achieved 90% of their Interventions including all LA Types.
+There are more Establishments Rated E which have achieved less than 75% of interventions compared to other Rated establishments.
+Most Establishments Under all LATypes Rated A-D have achieved more than 75% of the Interventions.
+
+### Relationship between each local authority's number of FTE food safety personnel and the percentage of effective answers
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+print(x)
+```
+
+Total percentage of intervention accomplished, and professional full-time equivalents positions have a correlation(r) of about 0(-0.02), indicating that there is very little adverse relationship between them which can be stated as negative correlation. Additionally, they have a relatively high of 0.6552 p-value (p>0.05), which denotes lower relevance among st them.
+
+The Below Graph Relationship between Successful Interventions and FTE Employees at each local Authority
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+grid.arrange(c1,c2,c3,c4,c5,c6,nrow=3,top = "Employee Relation at Each Local Authority")
+```
+
+The Pvalue for all models under each local authority > 0.05 indicating insignificance. Thus there is no big relation between Number of Employees and Interventions successfully achieved.
+
+### Relationship between each local authority's Proportion of FTE food safety personnel and the percentage of effective answers
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+grid.arrange(c7,c8,c9,c10,c11,c12,nrow=3,top = "Proportion of Employee at Each Local Authority")
+
+```
+
+Between proportion of successful responses and the number of FTE food safety employees, the correlation is seen as 0.064278, which is approximately zero and indicates that they are extremely less and might be dependent directly forming a positive correlation. Comparatively, London Borough (0.14811), the Metropolitan Borough Council (0.0614555), and the Unitary Authority (0.16641), results are very less dependent directly and depicts a positive correlation, nevertheless, the Northern Ireland Unitary Authority (-0.06561), and the Welsh Unitary Authority (-0.0663) are significantly less dependent inversely stating a negative correlation.
+
+The overall success rate of interventions and Proportion of Employee correlation(r) gives out as 0.21, indicating a positive relation between the two. Furthermore, the low p-value of 1e-04, demonstrates a high level of significance among the two variables.
+Using the given model's findings, it is indicated that the coefficient of 2407.398 anticipates a considerable rise of 24.073 in the overall proportion of interventions that were successful for every 0.01 increase in Proportion of Employee However, 79.536% (according to the 79.536  intercept) informs us that the total intervention will be successful in a condition with no Proportion of Employee
+
+The calculated overall percent of interventions accomplished exceeds the projected 95% Confidence interval of [1193.72035 - 3621.0758] by 2407.398.
+
+Lastly, it is possible to estimate how establishments will react to enforcement actions by looking at the Proportion of food safety employees within each establishment. But then, the ability of the businesses to successfully execute interventions is not directly impacted by food safety employees.
+
+# Scenario 2- Publisher Statistics
+
+This is a report for a manager of a publishing company with specific analysis.
+
+The data provided contains information on e-book sales over a period of many months. Each row in the data represents one book. The values of the variables are taken across the entire time period, so daily.sales is the average number of sales (minus refunds) across all days in the period, and sale.price is the average price for which the book sold across all sales in the period.
+
+## Section 1
+
+### Data Dictionary
+
+Variable Name | Description
+-------------------------- | --------------------------
+Genre | The book's Genre
+avg.review | Average Reviews of E-Books. 
+daily.sales | average number of sales across all days in the period. 
+total.reviews | The total amount of ebook reviews.
+sale.price | average price for which the book sold across all sales in the period.
+
+### Data
+
+```{r}
+bd <- read_csv("publisher_sales.csv")
+```
+
+### EDA 
+
+```{r}
+str(bd)
+
+#Genre should be of factor datatype instead of character
+bd$genre <- as.factor(bd$genre)
+levels(bd$genre)
+
+summary(bd)
+```
+We can see Negaive values in daily sales average which is not possible thus we can remove the values less than zero. 
+Total and Average Reviews there are few books with 0 reviews.
+
+```{r}
+#Omitting negative values
+bd <- bd %>% filter(daily.sales > 0)
+summary(bd)
+```
+
+```{r}
+# Histogram for the sales of the books 
+
+ggplot(data = bd, aes(x = sale.price)) + geom_histogram(binwidth = 0.2)
+
+# Average reviews for different sorts of publishers are displayed.
+
+ggplot(data = bd, aes(x = avg.review, fill = publisher.type,alpha = 0.1)) + geom_histogram(binwidth = 0.1,position = 'dodge')
+```
+
+Comparatively, the average review for books sold by small- and medium-sized publishers is excellent. Additionally, several of the reviews for the plot were zero.
+
+### Daily sales of ebooks, broken down by genre
+
+```{r}
+Sales.Genre <- bd %>% group_by(genre) %>%
+  summarise(average.sales = mean(daily.sales))
+
+
+ggplot(Sales.Genre, aes(x=genre, y=average.sales)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = average.sales), vjust = -0.2) +
+  labs(x="Genre of Books", y="Avg Sales", title = "Average e-Book Sales for each Genre ")
+
+```
+
+Fiction has the Highest Average Daily Sales among different Genre.
+
+The daily sales varies depending on the Genre of books. Fiction Genre books are sold the most follwed by Non_fiction and Children respectively.
+
+### Sales based on average review scores and overall review count
+
+```{r}
+rcorr(as.matrix(bd %>% select(avg.review, daily.sales, total.reviews, sale.price)))
+```
+```{r}
+grid.arrange(
+ggplot(bd, aes(x=daily.sales, y=avg.review)) + geom_point() + geom_smooth() + labs(y="Average Review", x="Daily Sales"),
+
+ggplot(bd, aes(x=daily.sales, y=total.reviews)) + geom_point() + geom_smooth() + labs(y="Total Review", x="Daily Sales"),
+
+ggplot(bd, aes(x=avg.review, y=total.reviews)) + geom_point() + geom_smooth() + labs(y="Total Review", x="Average Review"),
+
+nrow=3, top="Necessary Correlations")
+```
+
+There is no Big correlation between Avg reviews and Daily Sales as well as Average Review and Total Review. Therefore Average Review and Total Review are both independent variables of each other.
+There also Exists a positive correlation between Total Review and Daily Sales.
+```{r}
+# Creating a correlation data frame
+cor_avd <- cor(bd$avg.review,bd$daily.sales)
+cor_tvd <- cor(bd$total.reviews,bd$daily.sales)
+cor_avt <- cor(bd$total.reviews,bd$avg.review)
+
+print(data.frame(cor_avd,cor_tvd,cor_avt))
+```
+
+Correlation Between Total Review and Daily sales = 0.66 which is a positive correlation.
+
+```{r}
+#Performing Multiple Linear Regression to predict the daily sales based on average and total reviews
+m1 <- lm(daily.sales ~ avg.review + total.reviews, data = bd)
+summary(m1)
+cbind(coef(m1),confint(m1))
+```
+
+When estimating the effect of both Total Review and Average Review in the same regression we find that when controlling for other variables, a 1 unit increase in total review predicts 0.543 additional sales (t(5996) = 69.51, p<0.001, 95% CI [0.53, 0.56]) and an increase in average review by 1 unit predicts a decrease in daily sales of 3.99 (t(5996) = -7.8, p<0.001, 95% CI [-5, -2.99])
+
+Since we have zero avg and total reviews in the data we will form another model without those.
+```{r}
+#Performing Multiple Linear Regression to predict the daily sales based on average and total reviews with removing 0 reviews
+bd_null <- bd %>% filter(total.reviews != 0)
+
+m2 <- lm(daily.sales ~ avg.review + total.reviews, data = bd_null)
+summary(m2)
+cbind(coef(m2),confint(m2))
+
+```
+
+The rate of daily sales decreases by 0.366 between -1.47 and 0.742 when the average review increases by 1%
+Daily sales increases by 0.56, 95% CI [0.54, 0.58] for every total review
+
+###  Effect of sale price upon the number of sales, and across different genres
+
+```{r}
+#Correlation between number of sales and sale price
+rcorr(as.matrix(select(bd, sale.price, daily.sales)))
+
+ggplot(data = bd, aes(x = daily.sales, y = sale.price)) + geom_point() + geom_smooth(method = lm) + labs(x= "Daily Sales", y = "Sales Price",title = expression(r == -0.28))
+```
+
+There is a weak negative correlation with rvalue = -0.28 between daily sales and sales price which is significant p<0.05
+
+```{r}
+# Sales Price VS Daily Sales Graph 
+ggplot(data = bd, aes(x = sale.price, y = daily.sales, color = genre)) + geom_point(alpha = 0.1) + geom_smooth(method = lm)
+```
+
+```{r}
+#Different genres data frame
+c <- bd %>% filter(genre == 'childrens')
+f <- bd %>% filter(genre == 'fiction')
+nf <- bd %>% filter(genre == 'non_fiction')
+
+k1 <- ggplot(data = c, aes(x = daily.sales, y = sale.price)) + geom_point() + geom_smooth(method = lm) + labs(x= "Daily Sales", y = "Sales Price", title ='Children')
+
+k2 <- ggplot(data =f, aes(x = daily.sales, y = sale.price)) + geom_point() + geom_smooth(method = lm) + labs(x= "Daily Sales", y = "Sales Price",title = "Fiction")
+
+k3 <- ggplot(data = nf, aes(x = daily.sales, y = sale.price)) + geom_point() + geom_smooth(method = lm) + labs(x= "Daily Sales", y = "Sales Price",title="Non-Fiction")
+
+grid.arrange(k1,k2,k3, ncol=3)
+
+```
+
+There exists a Negative correlation between genre Children and daily sales. No strong correlation exists for the other genres.
+
+```{r}
+#Simple model with just daily.sales as a function of sale.price
+ds_sp <- lm(daily.sales ~ sale.price, data = bd)
+
+```
+
+```{r}
+#Output of Model
+print(summary(ds_sp))
+print(cbind(coef(ds_sp),confint(ds_sp)))
+print(( ds_sp_emm <- emmeans(ds_sp, ~sale.price) ))
+```
+
+The estimate value for sale.price is negative, so the daily sales will decrease by 3.81 when sale price increases by 1 percent.
+
+```{r}
+#Model including genre
+g1 <- lm(daily.sales ~ sale.price + genre, data = bd)
+( g1.emm <- emmeans(g1, ~sale.price) )
+```
+```{r}
+#ANOVA method to compare models
+
+anova(ds_sp, g1)
+```
+
+```{r}
+#Interaction Terms
+int <- lm(daily.sales ~ sale.price * genre, data = bd)
+summary(int)
+```
+```{r}
+anova(ds_sp, g1,int)
+```
+
+When forecasting daily.sales, there is a substantial positive interaction between sale.price and genre, as indicated by the sale.price:genre beta coefficient. This implies that the slope of genre is steeper when the value of the sale.price is higher.
+
+## Section 2
+
+The purpose of this report is to help the publishing company's managers comprehend the progress in e-book sales. The initial set of data included 6000 e-books and seven variables that tracked e-book sales over time. 
+
+### 1)Do books from different genres have different daily sales on average?
+
+E-books from all three major categories— children's, fiction, and nonfiction—are included in the data. Below are the average sales for each of these genres:
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+print(Sales.Genre)
+```
+
+The average sales for all books during this time period are 79.1, and the three categories significantly deviate from this value.
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(Sales.Genre, aes(x=genre, y=average.sales)) +
+  geom_bar(stat = "identity") +
+  geom_text(aes(label = average.sales), vjust = -0.2) +
+  labs(x="Genre of Books", y="Avg Sales", title = "Average e-Book Sales for each Genre ")
+```
+
+The sales of different Genre books have no much similarity on the daily sales. The Fiction(105.88) collection as more daily sales when compared to others followed by Non-fiction(75.9) and Children(55.77) respectively. 
+
+### 2)Do books have more/fewer sales depending upon their average review scores and total number of reviews?
+
+The Graph below shows the correlation between Average Reviews, Total Reviews and Daily Sales
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+grid.arrange(
+ggplot(bd, aes(x=daily.sales, y=avg.review)) + geom_point() + geom_smooth() + labs(y="Average Review", x="Daily Sales"),
+
+ggplot(bd, aes(x=daily.sales, y=total.reviews)) + geom_point() + geom_smooth() + labs(y="Total Review", x="Daily Sales"),
+
+ggplot(bd, aes(x=avg.review, y=total.reviews)) + geom_point() + geom_smooth() + labs(y="Total Review", x="Average Review"),
+
+nrow=3, top="Necessary Correlations")
+
+```
+
+There is Small positive correlation of daily sales with Total Review. But there is no big  correlation between the other variables.
+This indicates the increase in total review increases the daily sales.
+
+Thus for further relation considering the multiple linera regression model
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+summary(m1)
+cbind(coef(m1),confint(m1))
+```
+
+This depicts that more books are sold depending upon the Total reviews (i.e) When the count of total review increase by 1 there is 0.54percent increase in the daily sales.
+Where as the Average review decreases the percentage of daily sales.
+
+
+### 3)What is the effect of sale price upon the number of sales, and is this different across genres?
+
+The Correlation Graph between Daily sales and Sales price are as given below
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = bd, aes(x = daily.sales, y = sale.price)) + geom_point() + geom_smooth(method = lm) + labs(x= "Daily Sales", y = "Sales Price",title = expression(r == -0.28))
+```
+
+The weak negative correlation is seen indicating when there is a decrease in daily sales there increases the sales price. 
+Further we have made the analysis with the help of Linear regression and estimation to be more particular
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+print(summary(ds_sp))
+print(cbind(coef(ds_sp),confint(ds_sp)))
+print(( ds_sp_emm <- emmeans(ds_sp, ~sale.price) ))
+```
+
+Since the estimate value for sale.price is negative, a 1% increase in selling price will result in a 3.81 loss in daily sales.
+
+Correlation graph for Sales price with respect to Genres are as shown below:
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+ggplot(data = bd, aes(x = sale.price, y = daily.sales, color = genre)) + geom_point(alpha = 0.1) + geom_smooth(method = lm)
+```
+
+To be precise we can show the correlation individually:
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE}
+grid.arrange(k1,k2,k3, ncol=3)
+```
+
+There is no stronger correlation between the sales price and daily sales with respect to Genres Fiction and Non Fiction But there is a negative correlation with respect to children genre (i.e) the sales price decreases with the increase in daily sales.
+
+Furthermore,between the impact of sales price on daily sales varies with genres since the interaction among st sales price and genre has a reasonably high significant value when compared to the different genres.
